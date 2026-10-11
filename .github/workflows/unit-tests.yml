@@ -26,8 +26,6 @@ on:  # yamllint disable-line rule:truthy
   # osac-test-infra's e2e-caas-netris-caller.yml for the same reasoning).
   # Staggered from the other periodic workflows in this repo too, so they
   # don't all land on the same offset simultaneously.
-  schedule:
-    - cron: '13 */12 * * *'
   # Invoked as a parallel "box" by nightly-build.yaml, and by ci.yml.
   workflow_call:
     inputs:

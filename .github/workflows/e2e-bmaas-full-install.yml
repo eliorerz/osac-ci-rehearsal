@@ -28,8 +28,6 @@ on:
   # 5x/day. Offset 23 minutes past the hour, not on the hour -- GitHub
   # Actions' shared cron scheduler queues everyone's on-the-hour
   # schedules together and can delay/drop them under load.
-  schedule:
-    - cron: "23 2,7,12,17,22 * * *"
   workflow_dispatch:
     inputs:
       test-suite:
