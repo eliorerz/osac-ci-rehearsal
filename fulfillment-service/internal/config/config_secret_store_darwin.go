@@ -53,3 +53,5 @@ func keychainAvailable() bool {
 	cmd.WaitDelay = time.Second
 	return cmd.Run() == nil
 }
+
+// Rehearsal: comment-only change from a fork.
