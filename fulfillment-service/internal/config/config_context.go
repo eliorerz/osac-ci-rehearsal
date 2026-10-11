@@ -68,3 +68,5 @@ func TenantFromContext(ctx context.Context) string {
 func TenantIntoContext(ctx context.Context, tenant string) context.Context {
 	return context.WithValue(ctx, contextTenantKey, tenant)
 }
+
+// Rehearsal: a comment-only change to exercise the pipeline.
