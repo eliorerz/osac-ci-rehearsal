@@ -79,3 +79,5 @@ respond to comments, add follow-up commits, and re-run tests until all
 required checks are green. If the team accepts the pull request, your
 contribution will be merged and you will have successfully contributed to
 the OSAC project.
+
+Rehearsal note: docs-only change.
