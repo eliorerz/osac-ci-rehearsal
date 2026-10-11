@@ -81,5 +81,3 @@ contribution will be merged and you will have successfully contributed to
 the OSAC project.
 
 Rehearsal note: docs-only change.
-
-Rehearsal: main moved.
