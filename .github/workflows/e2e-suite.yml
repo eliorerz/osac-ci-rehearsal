@@ -1,0 +1,70 @@
+---
+# Runs ONE full-install E2E suite, picked by name. e2e-pr.yml and e2e-queue.yml call it once for each suite the policy
+# (.github/e2e-policy.yml) selects, as a matrix, so a workflow `uses:` line never has to be chosen at run time. A suite is
+# one job here that calls the suite's own workflow; the job that does not match `suite` is skipped.
+#
+# To add a suite: a policy entry in e2e-policy.yml (its `suite` id, the `check` name of its line on the pull request,
+# and the `filters` that say when it runs), the suite's workflow (e2e-<suite>-full-install.yml), and one job below named
+# after the suite id. The pull request's line for the suite follows the job of that name.
+name: E2E suite
+
+on:
+  workflow_call:
+    inputs:
+      suite:
+        description: The suite id, as in e2e-policy.yml
+        required: true
+        type: string
+      repo:
+        description: Repository that holds the commit to test, owner/name
+        required: true
+        type: string
+      sha:
+        description: The commit to test
+        required: true
+        type: string
+      pr-number:
+        description: The pull request, empty for a merge queue entry
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  vmaas:
+    name: vmaas
+    if: inputs.suite == 'vmaas'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/e2e-vmaas-full-install.yml
+    with:
+      repo: ${{ inputs.repo }}
+      sha: ${{ inputs.sha }}
+      pr-number: ${{ inputs.pr-number }}
+
+  caas:
+    name: caas
+    if: inputs.suite == 'caas'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/e2e-caas-full-install.yml
+    with:
+      repo: ${{ inputs.repo }}
+      sha: ${{ inputs.sha }}
+      pr-number: ${{ inputs.pr-number }}
+
+  bmaas:
+    name: bmaas
+    if: inputs.suite == 'bmaas'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/e2e-bmaas-full-install.yml
+    with:
+      repo: ${{ inputs.repo }}
+      sha: ${{ inputs.sha }}
+      pr-number: ${{ inputs.pr-number }}

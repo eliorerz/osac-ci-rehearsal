@@ -3,7 +3,8 @@
 # own commit; the queue entry is that change on top of the latest main (and of the entries ahead of it), so it is tested
 # again, with no approval to wait for. The pull request's own E2E runs from e2e-pr.yml.
 #
-# `plan` lists the suites the entry needs by the rules in .github/e2e-policy.yml, the suites run as one job each, and the
+# `plan` lists the suites the entry needs by the rules in .github/e2e-policy.yml, the suites run as one job each (a
+# matrix over e2e-suite.yml), and the
 # job named `E2E` is the required check: it passes when every suite that was needed passed. An entry that touches only
 # docs needs no suite and the check passes at once.
 name: E2E for the merge queue
@@ -33,7 +34,7 @@ jobs:
           BASE: ${{ github.event.merge_group.base_sha }}
           HEAD: ${{ github.event.merge_group.head_sha }}
         run: git diff --name-only "${BASE}" "${HEAD}" > "${RUNNER_TEMP}/changed-files"
-      - uses: osac-project/osac-ci/.github/actions/e2e-suites@9bff1f4e82efec3ac1e98149a24aa52a626a40ea  # osac-ci main
+      - uses: osac-project/osac-ci/.github/actions/e2e-suites@2c7febbbb1ad799cc72be979c8b947ea3428eb0a  # osac-ci #52
         id: suites
         with:
           policy-file: ${{ github.workspace }}/.github/e2e-policy.yml
@@ -73,39 +74,21 @@ jobs:
               gh run cancel "${id}" || echo "run ${id} already finished; nothing to cancel"
             done
 
-  vmaas:
-    name: VMaaS
+  # One job per suite the plan picked (a matrix), the same way e2e-pr.yml runs them.
+  suites:
+    name: ${{ matrix.suite }}
     needs: plan
-    if: contains(needs.plan.outputs.suites, '"vmaas"')
+    if: needs.plan.outputs.suites != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(needs.plan.outputs.suites) }}
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/e2e-vmaas-full-install.yml
+    uses: ./.github/workflows/e2e-suite.yml
     with:
-      repo: ${{ github.repository }}
-      sha: ${{ github.event.merge_group.head_sha }}
-
-  caas:
-    name: CaaS
-    needs: plan
-    if: contains(needs.plan.outputs.suites, '"caas"')
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/e2e-caas-full-install.yml
-    with:
-      repo: ${{ github.repository }}
-      sha: ${{ github.event.merge_group.head_sha }}
-
-  bmaas:
-    name: BMaaS
-    needs: plan
-    if: contains(needs.plan.outputs.suites, '"bmaas"')
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/e2e-bmaas-full-install.yml
-    with:
+      suite: ${{ matrix.suite }}
       repo: ${{ github.repository }}
       sha: ${{ github.event.merge_group.head_sha }}
 
@@ -114,7 +97,7 @@ jobs:
   E2E:
     name: E2E
     if: ${{ !cancelled() }}
-    needs: [plan, vmaas, caas, bmaas]
+    needs: [plan, suites]
     runs-on: ubuntu-latest
     permissions: {}
     steps:

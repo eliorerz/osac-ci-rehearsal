@@ -12,7 +12,8 @@
 # re-run of the finished run from the Actions page runs it again, and so does a new commit.
 #
 # Where the rules are: .github/e2e-policy.yml (the suites and the path filters that need them) and osac-ci (the
-# decision, and the check). Where the E2E itself is: the e2e-<suite>-full-install.yml workflows, one job each.
+# decision, and the check). Where the E2E itself is: e2e-suite.yml, which calls the e2e-<suite>-full-install.yml workflow
+# of each suite the policy picked.
 #
 # This workflow starts when CI starts or finishes and when a review is submitted or dismissed or the pull request changes
 # between draft and ready (e2e-review-relay.yml). It runs from the default branch with the repository's token and checks
@@ -63,6 +64,7 @@ jobs:
       sha: ${{ steps.report.outputs.sha }}
       number: ${{ steps.report.outputs.number }}
       suites: ${{ steps.report.outputs.suites }}
+      suite-checks: ${{ steps.report.outputs.suite-checks }}
       head-repo: ${{ steps.code.outputs.repo }}
     steps:
       # The default branch (the ref a workflow_run runs at), never the pull request.
@@ -72,7 +74,7 @@ jobs:
             .github/e2e-policy.yml
             .github/filters/ci-filters.yml
           persist-credentials: false
-      - uses: osac-project/osac-ci/.github/actions/e2e-decide@1045acefc6a0bc605c8073a62851f6fb9e31ac4f  # osac-ci e2e-queued-while-waiting
+      - uses: osac-project/osac-ci/.github/actions/e2e-decide@2c7febbbb1ad799cc72be979c8b947ea3428eb0a  # osac-ci #52
         id: decide
         with:
           github-token: ${{ github.token }}
@@ -81,9 +83,9 @@ jobs:
           number: ${{ inputs.number }}
           head-sha: ${{ github.event.workflow_run.head_sha }}
       # The E2E lines are check runs of the OSAC CI app, which the pull request page draws (a spinner while they run, the
-      # exact names E2E and E2E / <Suite>). A check run written with this workflow's own token would be attached to
-      # whichever Actions check suite of the commit is oldest, and the page does not draw those. The token has the
-      # permissions this job needs and lasts an hour.
+      # exact names). A check run written with this workflow's own token would be attached to whichever Actions check
+      # suite of the commit is oldest, and the page does not draw those. The token has the permissions this job needs and
+      # lasts an hour.
       - name: Token of the OSAC CI app, for the E2E lines
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
@@ -92,7 +94,7 @@ jobs:
           private-key: ${{ secrets.OSAC_CI_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-actions: read
-      - uses: osac-project/osac-ci/.github/actions/e2e-report@1045acefc6a0bc605c8073a62851f6fb9e31ac4f  # osac-ci e2e-queued-while-waiting
+      - uses: osac-project/osac-ci/.github/actions/e2e-report@2c7febbbb1ad799cc72be979c8b947ea3428eb0a  # osac-ci #52
         id: report
         with:
           github-token: ${{ steps.app-token.outputs.token }}
@@ -141,9 +143,10 @@ jobs:
             gh run cancel "${id}" --repo "${REPO}" || echo "run ${id} already finished"
           done
 
-  # One check per suite on the pull request ("E2E / VMaaS" ...), next to the single E2E status: the suites run in this
-  # workflow run, whose jobs are not on the pull request, so this is how a person on the pull request sees which suite
-  # is waiting, running or failed, and gets to its log in one click. Only the suites that run get a check.
+  # One check per suite on the pull request, named by the policy ("E2E / VMaaS Full Install" ...), next to the single E2E
+  # check: the suites run in this workflow run, whose jobs are not on the pull request, so this is how a person on the
+  # pull request sees which suite is waiting, running or failed, and gets to its log in one click. Only the suites that
+  # run get a check, and which suites run, and what their checks are called, is the policy's (e2e-policy.yml).
   track:
     name: Suite checks
     needs: decide
@@ -153,15 +156,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: List the suites
-        id: list
-        env:
-          SUITES: ${{ needs.decide.outputs.suites }}
-        run: echo "suites=$(jq -r 'join(",")' <<<"${SUITES}")" >> "$GITHUB_OUTPUT"
       # The E2E lines are check runs of the OSAC CI app, which the pull request page draws (a spinner while they run, the
-      # exact names E2E and E2E / <Suite>). A check run written with this workflow's own token would be attached to
-      # whichever Actions check suite of the commit is oldest, and the page does not draw those. The token has the
-      # permissions this job needs and lasts an hour.
+      # exact names). A check run written with this workflow's own token would be attached to whichever Actions check
+      # suite of the commit is oldest, and the page does not draw those. The token has the permissions this job needs and
+      # lasts an hour.
       - name: Token of the OSAC CI app, for the E2E lines
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
@@ -170,51 +168,31 @@ jobs:
           private-key: ${{ secrets.OSAC_CI_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-actions: read
-      - uses: osac-project/osac-ci/.github/actions/e2e-suites-track@1045acefc6a0bc605c8073a62851f6fb9e31ac4f  # osac-ci e2e-queued-while-waiting
+      - uses: osac-project/osac-ci/.github/actions/e2e-suites-track@2c7febbbb1ad799cc72be979c8b947ea3428eb0a  # osac-ci #52
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           kind: checks
           repo: ${{ github.repository }}
           sha: ${{ needs.decide.outputs.sha }}
-          suites: ${{ steps.list.outputs.suites }}
+          suite-checks: ${{ needs.decide.outputs.suite-checks }}
 
-  # The suites are separate jobs of one workflow each; the decision picks which ones run. A suite that is not needed does
-  # not run at all, so it does not show up as a skipped job in the pull request's checks.
-  vmaas:
-    name: VMaaS
+  # One job per suite the decision picked (a matrix), each named after the suite id: the line of the suite on the pull
+  # request follows the job of that name. A suite that is not picked has no job, so it shows up neither as a skipped job
+  # nor as a line on the pull request.
+  suites:
+    name: ${{ matrix.suite }}
     needs: decide
-    if: needs.decide.outputs.start == 'true' && contains(needs.decide.outputs.suites, '"vmaas"')
+    if: needs.decide.outputs.start == 'true' && needs.decide.outputs.suites != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(needs.decide.outputs.suites) }}
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/e2e-vmaas-full-install.yml
+    uses: ./.github/workflows/e2e-suite.yml
     with:
-      repo: ${{ needs.decide.outputs.head-repo }}
-      sha: ${{ needs.decide.outputs.sha }}
-      pr-number: ${{ needs.decide.outputs.number }}
-
-  caas:
-    name: CaaS
-    needs: decide
-    if: needs.decide.outputs.start == 'true' && contains(needs.decide.outputs.suites, '"caas"')
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/e2e-caas-full-install.yml
-    with:
-      repo: ${{ needs.decide.outputs.head-repo }}
-      sha: ${{ needs.decide.outputs.sha }}
-      pr-number: ${{ needs.decide.outputs.number }}
-
-  bmaas:
-    name: BMaaS
-    needs: decide
-    if: needs.decide.outputs.start == 'true' && contains(needs.decide.outputs.suites, '"bmaas"')
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/e2e-bmaas-full-install.yml
-    with:
+      suite: ${{ matrix.suite }}
       repo: ${{ needs.decide.outputs.head-repo }}
       sha: ${{ needs.decide.outputs.sha }}
       pr-number: ${{ needs.decide.outputs.number }}
@@ -222,7 +200,7 @@ jobs:
   # Runs whatever happened above, including a cancel, so the status never stays "running".
   finish:
     name: Record the result
-    needs: [decide, track, vmaas, caas, bmaas]
+    needs: [decide, track, suites]
     if: always() && needs.decide.outputs.start == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -232,26 +210,22 @@ jobs:
       - name: Add up the suites
         id: result
         env:
-          RESULTS: ${{ toJSON(needs) }}
+          SUITES_RESULT: ${{ needs.suites.result }}
+          SUITES: ${{ needs.decide.outputs.suites }}
         run: |
           set -euo pipefail
-          suites=$(jq -r 'del(.decide, .track) | to_entries[] | select(.value.result != "skipped") | "\(.key)=\(.value.result)"' <<<"${RESULTS}" | paste -sd' ')
-          if jq -e 'del(.decide, .track) | [.[].result] | any(. == "failure")' <<<"${RESULTS}" >/dev/null; then
-            result=failure
-          elif jq -e 'del(.decide, .track) | [.[].result] | any(. == "cancelled")' <<<"${RESULTS}" >/dev/null; then
-            result=cancelled
-          elif [[ -z "${suites}" ]]; then
-            # the decision said start but no suite ran: do not report a pass
-            result=failure
-          else
-            result=success
-          fi
+          case "${SUITES_RESULT}" in
+            success) result=success ;;
+            cancelled) result=cancelled ;;
+            # failure, or skipped: the decision said start but no suite ran, which must not report a pass
+            *) result=failure ;;
+          esac
           echo "result=${result}" >> "$GITHUB_OUTPUT"
-          echo "suites=${suites}" >> "$GITHUB_OUTPUT"
+          echo "suites=$(jq -r 'join(", ")' <<<"${SUITES}")" >> "$GITHUB_OUTPUT"
       # The E2E lines are check runs of the OSAC CI app, which the pull request page draws (a spinner while they run, the
-      # exact names E2E and E2E / <Suite>). A check run written with this workflow's own token would be attached to
-      # whichever Actions check suite of the commit is oldest, and the page does not draw those. The token has the
-      # permissions this job needs and lasts an hour.
+      # exact names). A check run written with this workflow's own token would be attached to whichever Actions check
+      # suite of the commit is oldest, and the page does not draw those. The token has the permissions this job needs and
+      # lasts an hour.
       - name: Token of the OSAC CI app, for the E2E lines
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
@@ -260,7 +234,7 @@ jobs:
           private-key: ${{ secrets.OSAC_CI_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-actions: read
-      - uses: osac-project/osac-ci/.github/actions/e2e-finish@1045acefc6a0bc605c8073a62851f6fb9e31ac4f  # osac-ci e2e-queued-while-waiting
+      - uses: osac-project/osac-ci/.github/actions/e2e-finish@2c7febbbb1ad799cc72be979c8b947ea3428eb0a  # osac-ci #52
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           kind: checks
@@ -268,10 +242,10 @@ jobs:
           sha: ${{ needs.decide.outputs.sha }}
           result: ${{ steps.result.outputs.result }}
           detail: ${{ steps.result.outputs.suites }}
-      - uses: osac-project/osac-ci/.github/actions/e2e-suites-settle@1045acefc6a0bc605c8073a62851f6fb9e31ac4f  # osac-ci e2e-queued-while-waiting
+      - uses: osac-project/osac-ci/.github/actions/e2e-suites-settle@2c7febbbb1ad799cc72be979c8b947ea3428eb0a  # osac-ci #52
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           kind: checks
           repo: ${{ github.repository }}
           sha: ${{ needs.decide.outputs.sha }}
-          results: ${{ steps.result.outputs.suites }}
+          suite-checks: ${{ needs.decide.outputs.suite-checks }}
