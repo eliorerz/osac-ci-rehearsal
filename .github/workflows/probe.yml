@@ -25,13 +25,12 @@ jobs:
           RUN_ID: ${{ inputs.run_id }}
         run: |
           set -euo pipefail
-          suite=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}" --jq .check_suite_id)
-          echo "attaching to check suite ${suite}"
-          gh api -X POST "repos/${REPO}/check-runs" \
-            -f name="probe / attached to a running suite" -f head_sha="${SHA}" -f status=in_progress \
-            -F check_suite_id="${suite}" -f 'output[title]=Spinning?' -f 'output[summary]=probe' \
-            --jq '"created \(.id) in suite \(.check_suite.id) app \(.app.slug)"'
-          gh api -X POST "repos/${REPO}/check-runs" \
-            -f name="probe / default suite" -f head_sha="${SHA}" -f status=in_progress \
-            -f 'output[title]=Spinning?' -f 'output[summary]=probe' \
-            --jq '"created \(.id) in suite \(.check_suite.id) app \(.app.slug)"'
+          mk() {
+            gh api -X POST "repos/${REPO}/check-runs" -f head_sha="${SHA}" -f status=in_progress \
+              -f 'output[title]=Spinning?' -f 'output[summary]=probe' "$@" \
+              --jq '"created \(.id) \(.name) in suite \(.check_suite.id)"'
+          }
+          mk -f name="E2E / VMaaS"
+          mk -f name="probe with external id" -f external_id="run:123"
+          mk -f name="probe with details url" -f details_url="https://github.com/${REPO}/actions/runs/${RUN_ID}"
+          mk -f name="E2E"
