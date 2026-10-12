@@ -72,7 +72,7 @@ jobs:
             .github/e2e-policy.yml
             .github/filters/ci-filters.yml
           persist-credentials: false
-      - uses: osac-project/osac-ci/.github/actions/e2e-decide@ddf100410769076e222341e317acc11eb3715f35  # osac-ci main
+      - uses: osac-project/osac-ci/.github/actions/e2e-decide@1045acefc6a0bc605c8073a62851f6fb9e31ac4f  # osac-ci e2e-queued-while-waiting
         id: decide
         with:
           github-token: ${{ github.token }}
@@ -92,7 +92,7 @@ jobs:
           private-key: ${{ secrets.OSAC_CI_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-actions: read
-      - uses: osac-project/osac-ci/.github/actions/e2e-report@ddf100410769076e222341e317acc11eb3715f35  # osac-ci main
+      - uses: osac-project/osac-ci/.github/actions/e2e-report@1045acefc6a0bc605c8073a62851f6fb9e31ac4f  # osac-ci e2e-queued-while-waiting
         id: report
         with:
           github-token: ${{ steps.app-token.outputs.token }}
@@ -170,7 +170,7 @@ jobs:
           private-key: ${{ secrets.OSAC_CI_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-actions: read
-      - uses: osac-project/osac-ci/.github/actions/e2e-suites-track@ddf100410769076e222341e317acc11eb3715f35  # osac-ci main
+      - uses: osac-project/osac-ci/.github/actions/e2e-suites-track@1045acefc6a0bc605c8073a62851f6fb9e31ac4f  # osac-ci e2e-queued-while-waiting
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           kind: checks
@@ -260,7 +260,7 @@ jobs:
           private-key: ${{ secrets.OSAC_CI_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-actions: read
-      - uses: osac-project/osac-ci/.github/actions/e2e-finish@ddf100410769076e222341e317acc11eb3715f35  # osac-ci main
+      - uses: osac-project/osac-ci/.github/actions/e2e-finish@1045acefc6a0bc605c8073a62851f6fb9e31ac4f  # osac-ci e2e-queued-while-waiting
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           kind: checks
@@ -268,7 +268,7 @@ jobs:
           sha: ${{ needs.decide.outputs.sha }}
           result: ${{ steps.result.outputs.result }}
           detail: ${{ steps.result.outputs.suites }}
-      - uses: osac-project/osac-ci/.github/actions/e2e-suites-settle@ddf100410769076e222341e317acc11eb3715f35  # osac-ci main
+      - uses: osac-project/osac-ci/.github/actions/e2e-suites-settle@1045acefc6a0bc605c8073a62851f6fb9e31ac4f  # osac-ci e2e-queued-while-waiting
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           kind: checks
