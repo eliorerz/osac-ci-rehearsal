@@ -12,8 +12,7 @@
 # re-run of the finished run from the Actions page runs it again, and so does a new commit.
 #
 # Where the rules are: .github/e2e-policy.yml (the suites and the path filters that need them) and osac-ci (the
-# decision, and the check). Where the E2E itself is: e2e-suite.yml, which calls the e2e-<suite>-full-install.yml workflow
-# of each suite the policy picked.
+# decision, and the check). Where the E2E itself is: the e2e-<suite>-full-install.yml workflows, one job each.
 #
 # This workflow starts when CI starts or finishes and when a review is submitted or dismissed or the pull request changes
 # between draft and ready (e2e-review-relay.yml). It runs from the default branch with the repository's token and checks
@@ -74,7 +73,7 @@ jobs:
             .github/e2e-policy.yml
             .github/filters/ci-filters.yml
           persist-credentials: false
-      - uses: osac-project/osac-ci/.github/actions/e2e-decide@2c7febbbb1ad799cc72be979c8b947ea3428eb0a  # osac-ci #52
+      - uses: osac-project/osac-ci/.github/actions/e2e-decide@1291e86861e1384a6c69fc767db89b636b965275  # osac-ci main
         id: decide
         with:
           github-token: ${{ github.token }}
@@ -94,7 +93,7 @@ jobs:
           private-key: ${{ secrets.OSAC_CI_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-actions: read
-      - uses: osac-project/osac-ci/.github/actions/e2e-report@2c7febbbb1ad799cc72be979c8b947ea3428eb0a  # osac-ci #52
+      - uses: osac-project/osac-ci/.github/actions/e2e-report@1291e86861e1384a6c69fc767db89b636b965275  # osac-ci main
         id: report
         with:
           github-token: ${{ steps.app-token.outputs.token }}
@@ -168,7 +167,7 @@ jobs:
           private-key: ${{ secrets.OSAC_CI_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-actions: read
-      - uses: osac-project/osac-ci/.github/actions/e2e-suites-track@2c7febbbb1ad799cc72be979c8b947ea3428eb0a  # osac-ci #52
+      - uses: osac-project/osac-ci/.github/actions/e2e-suites-track@1291e86861e1384a6c69fc767db89b636b965275  # osac-ci main
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           kind: checks
@@ -176,23 +175,44 @@ jobs:
           sha: ${{ needs.decide.outputs.sha }}
           suite-checks: ${{ needs.decide.outputs.suite-checks }}
 
-  # One job per suite the decision picked (a matrix), each named after the suite id: the line of the suite on the pull
-  # request follows the job of that name. A suite that is not picked has no job, so it shows up neither as a skipped job
-  # nor as a line on the pull request.
-  suites:
-    name: ${{ matrix.suite }}
+  # One job per suite, named after the suite id: the line of the suite on the pull request follows the job of that name
+  # (e2e-policy.yml gives the suite its id and the name of its line). A suite the decision did not pick does not run, so
+  # it has no line. To add a suite, add its job here and in e2e-queue.yml.
+  vmaas:
+    name: vmaas
     needs: decide
-    if: needs.decide.outputs.start == 'true' && needs.decide.outputs.suites != '[]'
-    strategy:
-      fail-fast: false
-      matrix:
-        suite: ${{ fromJSON(needs.decide.outputs.suites) }}
+    if: needs.decide.outputs.start == 'true' && contains(needs.decide.outputs.suites, '"vmaas"')
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/e2e-suite.yml
+    uses: ./.github/workflows/e2e-vmaas-full-install.yml
     with:
-      suite: ${{ matrix.suite }}
+      repo: ${{ needs.decide.outputs.head-repo }}
+      sha: ${{ needs.decide.outputs.sha }}
+      pr-number: ${{ needs.decide.outputs.number }}
+
+  caas:
+    name: caas
+    needs: decide
+    if: needs.decide.outputs.start == 'true' && contains(needs.decide.outputs.suites, '"caas"')
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/e2e-caas-full-install.yml
+    with:
+      repo: ${{ needs.decide.outputs.head-repo }}
+      sha: ${{ needs.decide.outputs.sha }}
+      pr-number: ${{ needs.decide.outputs.number }}
+
+  bmaas:
+    name: bmaas
+    needs: decide
+    if: needs.decide.outputs.start == 'true' && contains(needs.decide.outputs.suites, '"bmaas"')
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/e2e-bmaas-full-install.yml
+    with:
       repo: ${{ needs.decide.outputs.head-repo }}
       sha: ${{ needs.decide.outputs.sha }}
       pr-number: ${{ needs.decide.outputs.number }}
@@ -200,7 +220,7 @@ jobs:
   # Runs whatever happened above, including a cancel, so the status never stays "running".
   finish:
     name: Record the result
-    needs: [decide, track, suites]
+    needs: [decide, track, vmaas, caas, bmaas]
     if: always() && needs.decide.outputs.start == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -210,16 +230,22 @@ jobs:
       - name: Add up the suites
         id: result
         env:
-          SUITES_RESULT: ${{ needs.suites.result }}
+          RESULTS: ${{ toJSON(needs) }}
           SUITES: ${{ needs.decide.outputs.suites }}
         run: |
           set -euo pipefail
-          case "${SUITES_RESULT}" in
-            success) result=success ;;
-            cancelled) result=cancelled ;;
-            # failure, or skipped: the decision said start but no suite ran, which must not report a pass
-            *) result=failure ;;
-          esac
+          # the suites that ran are the jobs that were not skipped; decide and track are not suites
+          ran='del(.decide, .track) | [.[].result] | map(select(. != "skipped"))'
+          if jq -e "${ran} | any(. == \"failure\")" <<<"${RESULTS}" >/dev/null; then
+            result=failure
+          elif jq -e "${ran} | any(. == \"cancelled\")" <<<"${RESULTS}" >/dev/null; then
+            result=cancelled
+          elif jq -e "${ran} | length == 0" <<<"${RESULTS}" >/dev/null; then
+            # the decision said start but no suite ran: do not report a pass
+            result=failure
+          else
+            result=success
+          fi
           echo "result=${result}" >> "$GITHUB_OUTPUT"
           echo "suites=$(jq -r 'join(", ")' <<<"${SUITES}")" >> "$GITHUB_OUTPUT"
       # The E2E lines are check runs of the OSAC CI app, which the pull request page draws (a spinner while they run, the
@@ -234,7 +260,7 @@ jobs:
           private-key: ${{ secrets.OSAC_CI_APP_PRIVATE_KEY }}
           permission-checks: write
           permission-actions: read
-      - uses: osac-project/osac-ci/.github/actions/e2e-finish@2c7febbbb1ad799cc72be979c8b947ea3428eb0a  # osac-ci #52
+      - uses: osac-project/osac-ci/.github/actions/e2e-finish@1291e86861e1384a6c69fc767db89b636b965275  # osac-ci main
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           kind: checks
@@ -242,7 +268,7 @@ jobs:
           sha: ${{ needs.decide.outputs.sha }}
           result: ${{ steps.result.outputs.result }}
           detail: ${{ steps.result.outputs.suites }}
-      - uses: osac-project/osac-ci/.github/actions/e2e-suites-settle@2c7febbbb1ad799cc72be979c8b947ea3428eb0a  # osac-ci #52
+      - uses: osac-project/osac-ci/.github/actions/e2e-suites-settle@1291e86861e1384a6c69fc767db89b636b965275  # osac-ci main
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           kind: checks
