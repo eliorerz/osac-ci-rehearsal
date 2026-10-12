@@ -1,0 +1,42 @@
+---
+# Rehearsal stub of a suite that does not run for every pull request (like the real netris suites): a minute of "work",
+# then it fails when the tested commit has the file rehearsal-netris/fail.
+name: E2E Netris Fabric
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      repo:
+        required: true
+        type: string
+      sha:
+        required: true
+        type: string
+      pr-number:
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: ${{ inputs.repo }}
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - name: Pretend to run the suite
+        run: sleep 90
+      - name: Fail when asked to
+        run: |
+          if [[ -e rehearsal-netris/fail ]]; then
+            echo "::error::rehearsal-netris/fail exists, so this suite fails"
+            exit 1
+          fi

@@ -110,12 +110,23 @@ jobs:
       repo: ${{ github.repository }}
       sha: ${{ github.event.merge_group.head_sha }}
 
+  netris:
+    name: netris
+    needs: plan
+    if: contains(needs.plan.outputs.suites, '"netris"')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/e2e-netris-full-install.yml
+    with:
+      repo: ${{ github.repository }}
+      sha: ${{ github.event.merge_group.head_sha }}
+
   # The required check. It fails when a suite failed, and also when the plan did not run, which would otherwise skip
   # every suite and let the entry pass untested.
   E2E:
     name: E2E
     if: ${{ !cancelled() }}
-    needs: [plan, vmaas, caas, bmaas]
+    needs: [plan, vmaas, caas, bmaas, netris]
     runs-on: ubuntu-latest
     permissions: {}
     steps:

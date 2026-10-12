@@ -217,10 +217,22 @@ jobs:
       sha: ${{ needs.decide.outputs.sha }}
       pr-number: ${{ needs.decide.outputs.number }}
 
+  netris:
+    name: netris
+    needs: decide
+    if: needs.decide.outputs.start == 'true' && contains(needs.decide.outputs.suites, '"netris"')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/e2e-netris-full-install.yml
+    with:
+      repo: ${{ needs.decide.outputs.head-repo }}
+      sha: ${{ needs.decide.outputs.sha }}
+      pr-number: ${{ needs.decide.outputs.number }}
+
   # Runs whatever happened above, including a cancel, so the status never stays "running".
   finish:
     name: Record the result
-    needs: [decide, track, vmaas, caas, bmaas]
+    needs: [decide, track, vmaas, caas, bmaas, netris]
     if: always() && needs.decide.outputs.start == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10

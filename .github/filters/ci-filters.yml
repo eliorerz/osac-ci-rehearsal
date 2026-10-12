@@ -103,6 +103,10 @@ config-yaml-json:
 # own comment ("Networking is Netris-lab only (eth9, virsh, 3 BMIs)").
 # fulfillment-service's NetworkClass files are how the platform represents
 # which network backend (Netris vs. others) a tenant/subnet uses.
+# Rehearsal only: the stub netris suite runs for changes under rehearsal-netris/ and for nothing else.
+netris-stub:
+  - 'rehearsal-netris/**'
+
 netris-relevant:
   - '{osac-aap/collections/ansible_collections/netris/**,osac-aap/collections/ansible_collections/agentless_net/**,tests/e2e/bmaas/regression/networking/**,fulfillment-service/**/*network_class*,proto/**/*network_class*}'
 
@@ -183,6 +187,7 @@ e2e-suite:
 #   costs CI minutes; being wrong the other way risks a false skip.
 vmaas-outside-known-safe:
   - '**'
+  - '!rehearsal-netris/**'
   - '!**/*.md'
   - '!**/docs/**'
   - '!**/OWNERS'
@@ -199,6 +204,7 @@ vmaas-outside-known-safe:
   - '!tools/pr-notify/**'
 caas-outside-known-safe:
   - '**'
+  - '!rehearsal-netris/**'
   - '!**/*.md'
   - '!**/docs/**'
   - '!**/OWNERS'
@@ -214,6 +220,7 @@ caas-outside-known-safe:
   - '!tools/pr-notify/**'
 bmaas-outside-known-safe:
   - '**'
+  - '!rehearsal-netris/**'
   - '!**/*.md'
   - '!**/docs/**'
   - '!**/OWNERS'
