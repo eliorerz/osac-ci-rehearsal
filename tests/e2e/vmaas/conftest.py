@@ -280,3 +280,5 @@ def _set_cli_default_disk_image(cli: OsacCLI, default_disk_image: str) -> None:
 def _set_cli_default_storage_tier(cli: OsacCLI, default_storage_tier: str) -> None:
     """Wire the session-scoped default storage tier into the shared CLI fixture."""
     cli.default_storage_tier = default_storage_tier
+
+# rehearsal: fork authorization gate test
