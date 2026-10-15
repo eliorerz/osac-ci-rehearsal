@@ -19,6 +19,14 @@ on:
         required: false
         type: string
         default: ""
+      fork-pr-author:
+        required: false
+        type: string
+        default: ""
+      fork-pr-author-association:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   e2e:
