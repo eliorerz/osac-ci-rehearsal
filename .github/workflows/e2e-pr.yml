@@ -67,6 +67,7 @@ jobs:
       head-repo: ${{ steps.code.outputs.repo }}
       fork-author: ${{ steps.code.outputs.fork-author }}
       fork-association: ${{ steps.code.outputs.fork-association }}
+      approved: ${{ steps.approved.outputs.yes }}
     steps:
       # The default branch (the ref a workflow_run runs at), never the pull request.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -102,6 +103,17 @@ jobs:
           kind: checks
           repo: ${{ github.repository }}
           decision-file: ${{ steps.decide.outputs.json-file }}
+      # A review was submitted and the pull request has an approval that counts on its head commit: the auto-merge job
+      # below turns auto-merge on. Only on the event that follows a review (not on every CI run), so that a person who
+      # turned auto-merge off keeps it off until the next approval.
+      - name: Is the pull request approved?
+        id: approved
+        if: >-
+          github.event.action == 'completed' && github.event.workflow_run.name == 'E2E review relay' &&
+          steps.report.outputs.number != ''
+        env:
+          DECISION: ${{ steps.decide.outputs.json-file }}
+        run: echo "yes=$(jq -r '(.approvers | length) > 0' "${DECISION}")" >> "$GITHUB_OUTPUT"
       # The repository the commit lives in (a fork for a fork pull request), for the suites to check out.
       - name: Find the code to test
         id: code
@@ -163,6 +175,32 @@ jobs:
   # check: the suites run in this workflow run, whose jobs are not on the pull request, so this is how a person on the
   # pull request sees which suite is waiting, running or failed, and gets to its log in one click. Only the suites that
   # run get a check, and which suites run, and what their checks are called, is the policy's (e2e-policy.yml).
+  # Turns auto-merge on for an approved pull request, so nobody has to come back to add it to the merge queue: once `CI`,
+  # `E2E` and `jira-reference` are green GitHub puts it in the queue, and the queue merges it. It changes no rule. It
+  # runs in the default branch's context like the rest of this workflow, so it adds no check to the pull request, and it
+  # checks out nothing. A new commit drops the approval; "Disable auto-merge" on a pull request keeps it off until the next
+  # approval.
+  auto-merge:
+    name: Auto-merge
+    needs: decide
+    if: needs.decide.outputs.approved == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write  # enabling auto-merge asks for it
+      pull-requests: write
+    steps:
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ needs.decide.outputs.number }}
+          HEAD_SHA: ${{ needs.decide.outputs.sha }}
+        run: |
+          # Only for the commit that was decided on: if the pull request has moved on, GitHub refuses.
+          gh pr merge "${NUMBER}" --repo "${REPO}" --auto --match-head-commit "${HEAD_SHA}" \
+            || echo "::warning::Could not enable auto-merge on PR #${NUMBER}"
+
   track:
     name: Suite checks
     needs: decide
