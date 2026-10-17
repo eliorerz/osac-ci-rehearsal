@@ -68,6 +68,8 @@ jobs:
       fork-author: ${{ steps.code.outputs.fork-author }}
       fork-association: ${{ steps.code.outputs.fork-association }}
       approved: ${{ steps.approved.outputs.yes }}
+      approved-number: ${{ steps.approved.outputs.number }}
+      approved-sha: ${{ steps.approved.outputs.sha }}
     steps:
       # The default branch (the ref a workflow_run runs at), never the pull request.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -108,10 +110,16 @@ jobs:
       # the one that survives may be any of them.
       - name: Is the pull request approved?
         id: approved
-        if: steps.report.outputs.number != ''
+        if: steps.decide.outputs.number != ''
         env:
           DECISION: ${{ steps.decide.outputs.json-file }}
-        run: echo "yes=$(jq -r '(.approvers | length) > 0' "${DECISION}")" >> "$GITHUB_OUTPUT"
+        run: |
+          # One pull request was evaluated (the file is a list with one decision).
+          {
+            echo "yes=$(jq -r '.[0].approvers | length > 0' "${DECISION}")"
+            echo "number=$(jq -r '.[0].number' "${DECISION}")"
+            echo "sha=$(jq -r '.[0].head_sha' "${DECISION}")"
+          } >> "$GITHUB_OUTPUT"
       # The repository the commit lives in (a fork for a fork pull request), for the suites to check out.
       - name: Find the code to test
         id: code
@@ -193,8 +201,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          NUMBER: ${{ needs.decide.outputs.number }}
-          HEAD_SHA: ${{ needs.decide.outputs.sha }}
+          NUMBER: ${{ needs.decide.outputs.approved-number }}
+          HEAD_SHA: ${{ needs.decide.outputs.approved-sha }}
         run: |
           set -euo pipefail
           view=$(gh pr view "${NUMBER}" --repo "${REPO}" --json autoMergeRequest,isDraft)
