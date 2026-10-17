@@ -313,3 +313,5 @@ Creates `../osac-OSAC-1234` by default (or `$OSAC_WORKTREE_PARENT/osac-OSAC-1234
 > Be mindful of the content you commit to this repository. Do not commit any
 > material containing Red Hat confidential content, including information about
 > future product development plans.
+
+Rehearsal note: this line exists to test auto-merge.
