@@ -1,0 +1,29 @@
+---
+name: E2E Beta Stub
+on:
+  workflow_call:
+    inputs:
+      repo: {type: string, required: true}
+      sha: {type: string, required: true}
+      pr-number: {type: string, default: ""}
+      fork-pr-author: {type: string, default: ""}
+      fork-pr-author-association: {type: string, default: ""}
+permissions:
+  contents: read
+jobs:
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: ${{ inputs.repo }}
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - env:
+          AUTHOR: ${{ inputs.fork-pr-author }}
+          ASSOC: ${{ inputs.fork-pr-author-association }}
+        run: |
+          echo "the stub suite beta runs for ${{ inputs.sha }} of ${{ inputs.repo }} (PR ${{ inputs.pr-number }}); fork author='${AUTHOR}' association='${ASSOC}'"
+          sleep 40
+          if [ "beta" = beta ] && [ -e beta/fail ]; then echo "beta/fail exists: the stub suite fails on purpose"; exit 1; fi

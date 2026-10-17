@@ -1,0 +1,17 @@
+version: 1
+repo: osac-project/osac-ci-rehearsal
+path_filters:
+  mode: enforce
+  file: filters/ci-filters.yml
+jobs:
+  e2e-alpha:
+    kind: e2e
+    check: "E2E / Alpha Stub"
+    suite: alpha
+    filters_any: [e2e-code]
+  e2e-beta:
+    kind: e2e
+    check: "E2E / Beta Stub"
+    suite: beta
+    filters: [beta-touched]
+    filters_any: [e2e-code]

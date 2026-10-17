@@ -1,0 +1,6 @@
+e2e-code:
+  - '**'
+  - '!**/*.md'
+  - '!docs/**'
+beta-touched:
+  - '{beta/**}'
