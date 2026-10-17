@@ -6,4 +6,4 @@ permissions:
   contents: read
 jobs:
   call:
-    uses: eliorerz/ci-e2e-spike/.github/workflows/reusable.yml@2ea180408ddf8ed9fa9799b776af5233afe519b9
+    uses: eliorerz/ci-e2e-spike/.github/workflows/reusable.yml@813d554337b2a2963d6bd6510d1f241f97477a2b
