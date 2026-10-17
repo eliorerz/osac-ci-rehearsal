@@ -1,0 +1,9 @@
+name: spike s1 caller
+on:
+  push:
+    branches: [spike-s1-caller]
+permissions:
+  contents: read
+jobs:
+  call:
+    uses: eliorerz/ci-e2e-spike/.github/workflows/reusable.yml@2ea180408ddf8ed9fa9799b776af5233afe519b9
