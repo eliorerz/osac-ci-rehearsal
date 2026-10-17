@@ -1,0 +1,11 @@
+name: s7d dispatch with secret mapping
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  call:
+    uses: eliorerz/ci-e2e-spike/.github/workflows/reusable2.yml@897ad9f40b1dd2931c16205d9890aa3922a84965
+    permissions:
+      actions: read
+    secrets:
+      SPIKE_SECRET: ${{ secrets.SPIKE_SECRET }}

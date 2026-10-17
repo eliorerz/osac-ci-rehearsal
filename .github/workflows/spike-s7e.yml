@@ -1,0 +1,19 @@
+name: s7e dispatch with input passed on
+on:
+  workflow_dispatch:
+    inputs:
+      number:
+        description: n
+        required: false
+        default: ""
+permissions: {}
+concurrency:
+  group: s7e
+  cancel-in-progress: false
+jobs:
+  call:
+    uses: eliorerz/ci-e2e-spike/.github/workflows/reusable2.yml@897ad9f40b1dd2931c16205d9890aa3922a84965
+    permissions:
+      actions: read
+    with:
+      ci-name: ${{ inputs.number }}
